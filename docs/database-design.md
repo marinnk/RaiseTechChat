@@ -32,8 +32,12 @@
 - password_hash：VARCHAR(255), NOT NULL
 - display_name：VARCHAR(50), NOT NULL
 - avatar_url：VARCHAR(500), NULL可（フェーズ2のプロフィール機能で使う）
+- failed_login_count：INTEGER, NOT NULL, DEFAULT 0（続けてログインに失敗した回数。ログインに成功したら0に戻す）
+- locked_until：TIMESTAMPTZ, NULL可（この日時まではログインできない。NULLならログインできる）
 - created_at：TIMESTAMPTZ, NOT NULL
 - updated_at：TIMESTAMPTZ, NOT NULL
+- 5回続けて失敗したら、`locked_until` に15分後の日時を入れ、`failed_login_count` を0に戻す
+  - 例：田中さんが10:02に5回目の失敗をすると、`locked_until` が `10:17` になる。10:17を過ぎれば、またログインできる
 
 ### workspaces
 
@@ -82,7 +86,7 @@
 - id：BIGINT, PK
 - channel_id：BIGINT, FK → channels.id, NOT NULL, ON DELETE CASCADE
 - user_id：BIGINT, FK → users.id, NOT NULL
-- last_read_message_id：BIGINT, FK → messages.id, NULL可（最後に読んだメッセージ。NULLは1件も読んでいない状態）
+- last_read_message_id：BIGINT, FK → messages.id, NULL可（最後に読んだメッセージ。参加した時点の最新のメッセージを入れる。参加時にメッセージが1件もなければNULL）
 - joined_at：TIMESTAMPTZ, NOT NULL
 - UNIQUE制約：(channel_id, user_id)
 - 公開チャンネルも「参加」した人だけがここに登録される。非公開チャンネルとDMは、ここに登録された人だけが閲覧できる
@@ -118,6 +122,9 @@
 - expires_at：TIMESTAMPTZ, NOT NULL
 - used_at：TIMESTAMPTZ, NULL可（使用済みの場合に日時が入る。同じリンクを2回使えないようにする）
 - created_at：TIMESTAMPTZ, NOT NULL
+- インデックス：(user_id, created_at)（同じユーザーに最後にメールを送った日時を速く調べる）
+- パスワードリセットのメールを1分に1回までにするチェックは、このテーブルの `created_at` を使う
+  - 例：田中さんの最新のトークンの `created_at` が10:00:30なら、10:01:30までの申請ではメールを送らない
 
 ## ER図
 
@@ -142,6 +149,8 @@ erDiagram
         varchar password_hash
         varchar display_name
         varchar avatar_url
+        int failed_login_count
+        timestamptz locked_until
         timestamptz created_at
         timestamptz updated_at
     }
