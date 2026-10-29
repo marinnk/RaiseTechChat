@@ -551,7 +551,7 @@ function renderSignup() {
     <form data-form="signup">
       <div class="field"><label>表示名</label><input type="text" name="name" maxlength="50" value="田中 太郎"></div>
       <div class="field"><label>メールアドレス</label><input type="email" name="email" value="tanaka@example.com"></div>
-      <div class="field"><label>パスワード（8文字以上）</label><input type="password" name="password" value="pass"></div>
+      <div class="field"><label>パスワード（8〜64文字）</label><input type="password" name="password" value="pass"></div>
       ${errorHtml()}
       <button class="btn primary block">登録する</button>
     </form>
@@ -583,7 +583,7 @@ function renderReset() {
   }
   return authCard('新しいパスワードの設定', `
     <form data-form="reset">
-      <div class="field"><label>新しいパスワード（8文字以上）</label><input type="password" name="password"></div>
+      <div class="field"><label>新しいパスワード（8〜64文字）</label><input type="password" name="password"></div>
       <div class="field"><label>新しいパスワード（確認）</label><input type="password" name="confirm"></div>
       ${errorHtml()}
       <button class="btn primary block">設定する</button>
@@ -1007,6 +1007,7 @@ const FORMS = {
   signup(fd) {
     if (!fd.get('name') || !fd.get('email')) { state.error = '表示名とメールアドレスを入力してください'; render(); return; }
     if (fd.get('password').length < 8) { state.error = 'パスワードは8文字以上で入力してください'; render(); return; }
+    if (fd.get('password').length > 64) { state.error = 'パスワードは64文字以内で入力してください'; render(); return; }
     go('S05');
   },
   'reset-request'(fd) {
@@ -1017,6 +1018,7 @@ const FORMS = {
   },
   reset(fd) {
     if (fd.get('password').length < 8) { state.error = 'パスワードは8文字以上で入力してください'; render(); return; }
+    if (fd.get('password').length > 64) { state.error = 'パスワードは64文字以内で入力してください'; render(); return; }
     if (fd.get('password') !== fd.get('confirm')) { state.error = '確認用のパスワードが一致しません'; render(); return; }
     go('S01', { flash: 'パスワードを再設定しました。新しいパスワードでログインしてください。' });
   },
