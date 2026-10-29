@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(cat *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(mkdir *)",
+      "Bash(echo *)",
+      "Bash(which *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(./gradlew *)",
+      "Bash(java *)",
+      "Bash(python3 *)"
+    ],
+    "deny": [
+      "Bash(rm *)",
+      "Bash(rmdir *)",
+      "Bash(mv *)",
+      "Bash(sudo *)",
+      "Bash(chmod -R *)",
+      "Bash(chown -R *)",
+      "Bash(dd *)",
+      "Bash(truncate *)",
+      "Bash(kill -9 *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git checkout -- *)",
+      "Bash(git checkout .)",
+      "Bash(git branch -D*)"
+    ]
+  }
+}
