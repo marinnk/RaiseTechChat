@@ -397,9 +397,15 @@ function joined(ch) { return ch.members.includes(ME); }
 function curChannel() { return db.channels.find(c => c.id === state.channelId); }
 function generalOf(wsId) { return db.channels.find(c => c.ws === wsId && c.general); }
 function chLabel(ch) {
-  if (ch.type === 'DM') return ch.members.filter(id => id !== ME).map(id => USERS[id].name).join('、');
+  if (ch.type === 'DM') {
+    const others = ch.members.filter(id => id !== ME);
+    // 自分だけのDM（メモ用）は自分の名前を表示する
+    return others.length ? others.map(id => USERS[id].name).join('、') : `${USERS[ME].name}（あなた）`;
+  }
   return ch.name;
 }
+// DMは自分を含めて9人まで（仕様のルール）
+const MAX_DM_OTHERS = 8;
 function chIcon(ch) {
   if (ch.type === 'PUBLIC') return '#';
   if (ch.type === 'PRIVATE') return '🔒';
@@ -426,6 +432,8 @@ function can(action) {
 // =========================================================
 function go(id, extra = {}) {
   Object.assign(state, { error: null, flash: null, sub: null, sent: false, invalidLink: false, menuOpen: false, editingId: null, targetId: null }, extra);
+  // 招待リンクはモーダルを開くたびに新しく発行する
+  if (id === 'M05') state.inviteToken = null;
   if (location.hash === '#' + id) applyHash();
   else location.hash = id;
 }
@@ -812,8 +820,20 @@ function renderChannelDetail() {
   if (!ch) return modal('チャンネル詳細', '');
   const members = ch.members.map(id => `<div class="list-item">${avatar(id, 'sm')}<span class="grow">${esc(USERS[id].name)}${id === ME ? '<span class="muted">（あなた）</span>' : ''}</span></div>`).join('');
   if (ch.type === 'DM') {
-    return modal(esc(chTitle(ch)), `<h3>メンバー（${ch.members.length}人）</h3>${members}<p class="hint">DMではメンバーの一覧だけを表示します。</p>`);
+    return modal(esc(chTitle(ch)), `<h3>メンバー（${ch.members.length}人）</h3>${members}<p class="hint">DMではメンバーの一覧だけを表示します（編集・メンバー追加・退出はできません）。</p>`);
   }
+
+  const info = state.sub === 'edit'
+    ? `<form class="confirm" data-form="channel-edit">
+        <div class="field"><label>名前</label><input type="text" name="name" maxlength="80" value="${esc(ch.name)}" ${ch.general ? 'disabled' : ''}></div>
+        <div class="field"><label>説明</label><input type="text" name="description" maxlength="250" value="${esc(ch.description || '')}"></div>
+        ${errorHtml()}
+        <div class="row" style="justify-content:flex-start"><button type="button" class="btn small" data-act="sub" data-sub="">キャンセル</button><button class="btn primary small">保存</button></div>
+      </form>`
+    : `<div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div class="muted">${ch.description ? '説明：' + esc(ch.description) + '<br>' : ''}種別：${ch.type === 'PUBLIC' ? '公開チャンネル' : '非公開チャンネル'}</div>
+        <button class="btn small" data-act="sub" data-sub="edit">編集</button>
+      </div>`;
 
   let addArea = '';
   if (ch.type === 'PRIVATE') {
@@ -836,20 +856,27 @@ function renderChannelDetail() {
 
   let leaveArea = '';
   if (!ch.general) {
+    let warning = '';
+    if (ch.type === 'PRIVATE') {
+      warning = ch.members.length === 1
+        ? '参加者がいなくなり、誰もこのチャンネルを開けなくなります。'
+        : '再び参加するには、参加者に追加してもらう必要があります。';
+    }
     leaveArea = state.sub === 'leave'
-      ? `<div class="confirm">${ch.type === 'PRIVATE' ? '再び参加するには、参加者に追加してもらう必要があります。' : ''}チャンネルから退出しますか？
+      ? `<div class="confirm">${warning}チャンネルから退出しますか？
           <div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="sub" data-sub="">キャンセル</button><button class="btn danger solid small" data-act="leave">退出する</button></div></div>`
       : `<button class="btn danger" data-act="sub" data-sub="leave">チャンネルから退出</button>`;
   }
 
   const hints = [];
-  if (ch.general) hints.push('#general は非公開化・退出ができないため、ボタンを表示していません（仕様のルール）。');
+  hints.push('名前・説明は、チャンネルの参加者なら誰でも変更できます（権限表）。');
+  if (ch.general) hints.push('#general は非公開化・退出・名前の変更ができないため、ボタンを表示していません（仕様のルール）。');
   else if (ch.type === 'PUBLIC' && !can('makePrivate')) hints.push('［非公開にする］は OWNER・ADMIN だけに表示します（権限表）。上の「自分のロール」で切り替えてみてください。');
   if (ch.type === 'PRIVATE') hints.push('一度非公開にしたチャンネルは公開に戻せないため、［公開にする］ボタンはありません。');
   if (ch.type === 'PUBLIC') hints.push('［メンバーを追加］は非公開チャンネルだけに表示します。公開チャンネルは各自が［チャンネルを探す］から参加します。');
 
   return modal(esc(chTitle(ch)), `
-    <div class="muted">${ch.description ? '説明：' + esc(ch.description) + '<br>' : ''}種別：${ch.type === 'PUBLIC' ? '公開チャンネル' : '非公開チャンネル'}</div>
+    ${info}
     <h3>メンバー（${ch.members.length}人）</h3>
     ${members}
     <div class="actions-col">${addArea}${privateArea}${leaveArea}</div>
@@ -862,7 +889,7 @@ function renderDmCreate() {
     <form data-form="dm-create">
       ${others.map(id => `<label class="list-item"><input type="checkbox" name="users" value="${id}">${avatar(id, 'sm')}<span class="grow">${esc(USERS[id].name)}</span></label>`).join('')}
       ${errorHtml()}
-      <p class="hint">1人を選ぶと1対1のDM、2人以上でグループDMになります。同じメンバー構成のDMがすでにあれば、新しく作らずにそれを開きます。</p>
+      <p class="hint">1人を選ぶと1対1のDM、2人以上でグループDMになります。誰も選ばずに開始すると、自分だけのDM（メモ用）になります。選べるのは8人まで（自分を含めて9人）です。同じメンバー構成のDMがすでにあれば、新しく作らずにそれを開きます。</p>
       <div class="row"><button type="button" class="btn" data-go="S08">キャンセル</button><button class="btn primary">DMを開始</button></div>
     </form>`);
 }
@@ -900,7 +927,7 @@ const ACTIONS = {
   'close-modal'() { go('S08'); },
   'toggle-menu'() { state.menuOpen = !state.menuOpen; render(); },
   'toggle-invalid'() { state.invalidLink = !state.invalidLink; state.error = null; render(); },
-  sub(d) { state.sub = d.sub || null; state.keepScroll = 'stay'; render(); },
+  sub(d) { state.sub = d.sub || null; state.error = null; state.keepScroll = 'stay'; render(); },
   'enter-ws'(d) {
     state.workspaceId = Number(d.id);
     openChannel(generalOf(state.workspaceId).id);
@@ -1033,9 +1060,23 @@ const FORMS = {
     openChannel(ch.id);
     go('S08', { focus: '#composer' });
   },
+  'channel-edit'(fd) {
+    const ch = curChannel();
+    if (!ch.general) {
+      const name = fd.get('name').trim();
+      if (!name) { state.error = 'チャンネル名を入力してください'; render(); return; }
+      if (wsChannels().some(c => c.id !== ch.id && c.type !== 'DM' && c.name === name)) { state.error = '同じ名前のチャンネルがすでにあります'; render(); return; }
+      ch.name = name;
+    }
+    ch.description = fd.get('description').trim();
+    state.sub = null;
+    state.error = null;
+    render();
+  },
   'dm-create'(fd) {
+    // 誰も選ばなければ自分だけのDM（メモ用）になる
     const selected = fd.getAll('users').map(Number);
-    if (!selected.length) { state.error = '相手を1人以上選んでください'; render(); return; }
+    if (selected.length > MAX_DM_OTHERS) { state.error = `選べるのは${MAX_DM_OTHERS}人までです`; render(); return; }
     const key = [ME, ...selected].sort((a, b) => a - b).join(',');
     let ch = wsChannels().find(c => c.type === 'DM' && [...c.members].sort((a, b) => a - b).join(',') === key);
     if (!ch) {
@@ -1081,6 +1122,12 @@ document.addEventListener('submit', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'role-select') setMyRole(e.target.value);
+  // DMの相手は8人まで。上限に達したら残りのチェックボックスを選べないようにする
+  if (e.target.name === 'users') {
+    const boxes = [...e.target.form.querySelectorAll('input[name="users"]')];
+    const full = boxes.filter(b => b.checked).length >= MAX_DM_OTHERS;
+    boxes.forEach(b => { if (!b.checked) b.disabled = full; });
+  }
 });
 document.addEventListener('keydown', e => {
   // 日本語入力の変換確定（isComposing）のEnterでは送信しない

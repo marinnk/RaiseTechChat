@@ -82,7 +82,7 @@
 - id：BIGINT, PK
 - channel_id：BIGINT, FK → channels.id, NOT NULL, ON DELETE CASCADE
 - user_id：BIGINT, FK → users.id, NOT NULL
-- last_read_message_id：BIGINT, FK → messages.id, NULL可（最後に読んだメッセージ。NULLは1件も読んでいない状態）
+- last_read_message_id：BIGINT, FK → messages.id, NULL可（最後に読んだメッセージ。参加した時点の最新のメッセージを入れる。参加時にメッセージが1件もなければNULL）
 - joined_at：TIMESTAMPTZ, NOT NULL
 - UNIQUE制約：(channel_id, user_id)
 - 公開チャンネルも「参加」した人だけがここに登録される。非公開チャンネルとDMは、ここに登録された人だけが閲覧できる
