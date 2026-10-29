@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RaiseTechChat 画面デモ</title>
+<style>
+  :root {
+    --demo-bg: #1f2328;
+    --demo-fg: #e6edf3;
+    --demo-muted: #9aa4ae;
+    --demo-accent: #f2c744;
+    --side-bg: #3f0e40;
+    --side-fg: #cfc3cf;
+    --side-hover: #350d36;
+    --side-active: #1164a3;
+    --main-bg: #ffffff;
+    --page-bg: #f4f4f6;
+    --text: #1d1c1d;
+    --muted: #616061;
+    --border: #dddddd;
+    --primary: #007a5a;
+    --primary-hover: #148567;
+    --danger: #c0392b;
+    --badge: #e01e5a;
+    --hint-bg: #fff8e1;
+    --hint-border: #e0b84c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+    font-size: 15px;
+    color: var(--text);
+    background: var(--page-bg);
+    display: flex;
+    flex-direction: column;
+  }
+  button { font: inherit; cursor: pointer; }
+  input, textarea, select { font: inherit; }
+  a { color: #1264a3; cursor: pointer; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---------- デモ用の操作バー ---------- */
+  #demobar {
+    background: var(--demo-bg);
+    color: var(--demo-fg);
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: center;
+    font-size: 13px;
+  }
+  /* モーダルを開いていても、デモ用の操作バーは押せるようにする */
+  #demobar, #demonote { position: relative; z-index: 30; }
+  #demobar .tag { color: var(--demo-accent); font-weight: 700; }
+  #demobar .group { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  #demobar .group-label { color: var(--demo-muted); margin-right: 2px; }
+  #demobar button {
+    background: #2d333b;
+    color: var(--demo-fg);
+    border: 1px solid #444c56;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 12px;
+  }
+  #demobar button:hover { background: #3a424c; }
+  #demobar button.current { background: var(--demo-accent); color: #1f2328; border-color: var(--demo-accent); font-weight: 700; }
+  #demobar select { font-size: 12px; padding: 1px 4px; border-radius: 4px; }
+  #demonote {
+    background: #2d333b;
+    color: var(--demo-fg);
+    padding: 6px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #444c56;
+  }
+  #demonote b { color: var(--demo-accent); margin-right: 8px; }
+
+  #app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* ---------- 共通部品 ---------- */
+  .btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-weight: 600;
+  }
+  .btn:hover { background: #f6f6f6; }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn.danger { background: #fff; border-color: var(--danger); color: var(--danger); }
+  .btn.danger.solid { background: var(--danger); color: #fff; }
+  .btn.small { padding: 3px 10px; font-size: 13px; }
+  .btn.block { width: 100%; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .field input[type=text], .field input[type=email], .field input[type=password], .field textarea {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid #b5b5b5;
+    border-radius: 6px;
+  }
+  .error { color: var(--danger); font-size: 14px; margin: 0 0 12px; }
+  .success { color: var(--primary); font-size: 14px; margin: 0 0 12px; }
+  .hint {
+    background: var(--hint-bg);
+    border: 1px dashed var(--hint-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #6b5300;
+    margin: 10px 0;
+  }
+  .hint::before { content: "デモ解説："; font-weight: 700; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 8px; justify-content: flex-end; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 6px;
+    color: #fff; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar.sm { width: 24px; height: 24px; font-size: 12px; border-radius: 4px; }
+  .role {
+    font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+    background: #e8e8e8; color: #444;
+  }
+  .role.OWNER { background: #fde2e1; color: #a12a20; }
+  .role.ADMIN { background: #dbeafe; color: #1e4fa0; }
+
+  /* ---------- 認証まわり（S01〜S04、S06、S07） ---------- */
+  .auth { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow: auto; }
+  .auth-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 28px; width: 100%; max-width: 400px; }
+  .auth-card .logo { font-weight: 800; color: var(--side-bg); text-align: center; margin-bottom: 4px; }
+  .auth-card h1 { font-size: 22px; text-align: center; margin: 0 0 20px; }
+  .auth-card .links { margin-top: 16px; font-size: 14px; text-align: center; line-height: 1.9; }
+
+  /* ---------- S05 ワークスペース選択 ---------- */
+  .topbar { background: var(--side-bg); color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; }
+  .topbar .logo { font-weight: 800; }
+  .topbar a { color: #fff; font-size: 14px; }
+  .ws-page { flex: 1; overflow: auto; padding: 32px 16px; }
+  .ws-page-inner { max-width: 560px; margin: 0 auto; }
+  .ws-page h1 { font-size: 22px; margin: 0 0 16px; }
+  .ws-list { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  .ws-item { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .ws-item:last-child { border-bottom: 0; }
+  .ws-item:hover { background: #f8f8f8; }
+  .ws-item .ws-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--side-bg); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .ws-item .ws-name { font-weight: 700; }
+  .ws-item .chev { margin-left: auto; color: var(--muted); }
+
+  /* ---------- S08 チャット ---------- */
+  .chat { flex: 1; min-height: 0; display: flex; }
+  .sidebar { width: 260px; background: var(--side-bg); color: var(--side-fg); display: flex; flex-direction: column; flex-shrink: 0; position: relative; }
+  .ws-header {
+    color: #fff; font-weight: 800; font-size: 17px; padding: 12px 16px;
+    border-bottom: 1px solid #5a2a5b; cursor: pointer; background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left;
+  }
+  .ws-header:hover { background: var(--side-hover); }
+  .ws-menu {
+    position: absolute; top: 48px; left: 12px; right: 12px; z-index: 5;
+    background: #fff; color: var(--text); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.3); padding: 6px 0;
+  }
+  .ws-menu a { display: block; padding: 7px 16px; color: var(--text); font-size: 14px; }
+  .ws-menu a:hover { background: var(--side-active); color: #fff; text-decoration: none; }
+  .ws-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+  .side-scroll { flex: 1; overflow: auto; padding: 10px 0; }
+  .side-section { margin-bottom: 14px; }
+  .side-title { display: flex; justify-content: space-between; align-items: center; padding: 2px 16px; font-size: 14px; }
+  .side-title button { background: none; border: 0; color: var(--side-fg); font-size: 18px; line-height: 1; padding: 0 4px; border-radius: 4px; }
+  .side-title button:hover { background: var(--side-hover); color: #fff; }
+  .side-item {
+    display: flex; align-items: center; gap: 8px; padding: 4px 16px; font-size: 15px;
+    color: var(--side-fg); cursor: pointer; text-decoration: none;
+  }
+  .side-item:hover { background: var(--side-hover); text-decoration: none; }
+  .side-item.active { background: var(--side-active); color: #fff; }
+  .side-item.unread { color: #fff; font-weight: 700; }
+  .side-item .icon { width: 16px; text-align: center; opacity: .8; flex-shrink: 0; font-size: 13px; }
+  .side-item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-item .badge { margin-left: auto; background: var(--badge); color: #fff; font-size: 12px; font-weight: 700; border-radius: 9px; padding: 0 7px; }
+  .side-item.sub { opacity: .8; font-size: 14px; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--main-bg); }
+  .main-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); gap: 8px; }
+  .main-header .title { font-weight: 800; font-size: 17px; background: none; border: 0; padding: 4px 6px; border-radius: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .main-header .title:hover { background: #f2f2f2; }
+  .messages { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .loader { text-align: center; padding: 8px; font-size: 13px; color: var(--muted); }
+  .channel-start { padding: 16px 20px 8px; }
+  .channel-start h2 { margin: 0 0 4px; font-size: 20px; }
+  .msg { display: flex; gap: 10px; padding: 6px 20px; position: relative; }
+  .msg:hover { background: #f8f8f8; }
+  .msg-body { min-width: 0; flex: 1; }
+  .msg-meta b { margin-right: 8px; }
+  .msg-meta .time { color: var(--muted); font-size: 12px; }
+  .msg-text { white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+  .edited { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .msg-actions { position: absolute; top: 2px; right: 16px; display: none; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+  .msg:hover .msg-actions { display: flex; }
+  .msg-actions button { background: none; border: 0; font-size: 13px; padding: 2px 8px; border-radius: 4px; }
+  .msg-actions button:hover { background: #eee; }
+  .msg-actions button.del { color: var(--danger); }
+  .msg.new { animation: flash 1.6s ease-out; }
+  @keyframes flash { from { background: #fff4c2; } to { background: transparent; } }
+  .edit-box textarea { width: 100%; border: 1px solid #b5b5b5; border-radius: 6px; padding: 8px; min-height: 60px; }
+  .edit-box .row { justify-content: flex-start; margin-top: 6px; }
+  .composer { padding: 0 16px 16px; }
+  .composer form { border: 1px solid #b5b5b5; border-radius: 8px; display: flex; align-items: flex-end; padding: 6px; gap: 6px; }
+  .composer textarea { flex: 1; border: 0; resize: none; outline: none; padding: 6px; min-height: 38px; max-height: 160px; }
+  .composer .muted { margin-top: 4px; }
+
+  /* ---------- S09 メンバー管理 ---------- */
+  .page { flex: 1; overflow: auto; background: #fff; }
+  .page-inner { max-width: 760px; margin: 0 auto; padding: 16px; }
+  .page h1 { font-size: 22px; margin: 16px 0; }
+  .member-table { width: 100%; border-collapse: collapse; }
+  .member-table th, .member-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .member-table th { font-size: 13px; color: var(--muted); }
+  .member-name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .danger-zone { border: 1px solid #f0c4bf; border-radius: 8px; padding: 14px 16px; margin-top: 28px; }
+  .danger-zone h2 { font-size: 16px; margin: 0 0 8px; color: var(--danger); }
+
+  /* ---------- モーダル ---------- */
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: calc(var(--bar-h, 100px) + 24px) 16px 24px; z-index: 20; overflow: auto; }
+  .modal { background: #fff; border-radius: 10px; width: 100%; max-width: 480px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px 8px; }
+  .modal-head h2 { margin: 0; font-size: 19px; }
+  .modal-head .close { background: none; border: 0; font-size: 22px; line-height: 1; color: var(--muted); padding: 2px 6px; border-radius: 4px; }
+  .modal-head .close:hover { background: #eee; }
+  .modal-body { padding: 8px 20px 20px; }
+  .modal-body h3 { font-size: 14px; margin: 16px 0 6px; }
+  .list-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eee; }
+  .list-item:last-child { border-bottom: 0; }
+  .list-item .grow { flex: 1; min-width: 0; }
+  .radio { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; font-size: 14px; }
+  .invite-url { display: flex; gap: 6px; }
+  .invite-url input { flex: 1; padding: 8px; border: 1px solid #b5b5b5; border-radius: 6px; background: #f8f8f8; font-size: 13px; }
+  .quote { border-left: 4px solid var(--border); padding: 6px 10px; margin: 8px 0 12px; white-space: pre-wrap; word-break: break-word; background: #fafafa; }
+  .actions-col { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin-top: 16px; }
+  .confirm { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 14px; }
+
+  @media (max-width: 640px) {
+    .sidebar { width: 170px; }
+    .side-item, .side-title { padding-left: 10px; padding-right: 8px; }
+    .msg { padding: 6px 10px; }
+    .member-table .email { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="demobar"></div>
+<div id="demonote"></div>
+<div id="app"></div>
+<div id="modal-root"></div>
+
+<script>
+// =========================================================
+// サンプルデータ（リロードすると初期状態に戻る）
+// =========================================================
+const ME = 1;
+const USERS = {
+  1: { name: '田中 太郎', email: 'tanaka@example.com', color: '#e8912d' },
+  2: { name: '佐藤 花子', email: 'sato@example.com', color: '#2bac76' },
+  3: { name: '鈴木 一郎', email: 'suzuki@example.com', color: '#1d9bd1' },
+  4: { name: '高橋 美咲', email: 'takahashi@example.com', color: '#e01e5a' },
+  5: { name: '伊藤 健', email: 'ito@example.com', color: '#8e44ad' },
+};
+
+const db = {
+  workspaces: [
+    { id: 1, name: 'RaiseTech 受講生', members: [
+      { userId: 1, role: 'OWNER' }, { userId: 2, role: 'ADMIN' }, { userId: 3, role: 'MEMBER' },
+      { userId: 4, role: 'MEMBER' }, { userId: 5, role: 'MEMBER' },
+    ] },
+    { id: 2, name: '個人開発チーム', members: [
+      { userId: 2, role: 'OWNER' }, { userId: 1, role: 'MEMBER' }, { userId: 3, role: 'MEMBER' },
+    ] },
+  ],
+  channels: [
+    { id: 1, ws: 1, type: 'PUBLIC', name: 'general', general: true, description: '全体へのお知らせ', members: [1, 2, 3, 4, 5], unread: 0 },
+    { id: 2, ws: 1, type: 'PUBLIC', name: 'random', description: '雑談', members: [1, 2, 3, 4], unread: 3 },
+    { id: 3, ws: 1, type: 'PRIVATE', name: 'dev', description: '開発メンバー用', members: [1, 2, 3], unread: 1 },
+    { id: 4, ws: 1, type: 'PUBLIC', name: 'java-質問', description: 'Javaの質問はこちら', members: [2, 4, 5], unread: 0 },
+    { id: 5, ws: 1, type: 'DM', members: [1, 2], unread: 2 },
+    { id: 6, ws: 1, type: 'DM', members: [1, 3, 4], unread: 0 },
+    { id: 7, ws: 2, type: 'PUBLIC', name: 'general', general: true, description: '', members: [1, 2, 3], unread: 0 },
+  ],
+  messages: {
+    1: [
+      { id: 101, userId: 2, time: '09:30', content: 'おはようございます！今日の勉強会は20時からです。' },
+      { id: 102, userId: 3, time: '09:41', content: '了解です。資料は事前に見ておきます' },
+      { id: 103, userId: 1, time: '09:45', content: '参加します！', edited: true },
+      { id: 104, userId: 4, time: '10:02', content: '途中から参加になりそうです🙏' },
+      { id: 105, userId: 5, time: '10:10', content: '録画ってありますか？' },
+      { id: 106, userId: 2, time: '10:12', content: 'はい、あとで #general に共有します' },
+      { id: 107, userId: 1, time: '10:15', content: 'ありがとうございます。\nShift+Enterで改行もできます' },
+    ],
+    2: [
+      { id: 201, userId: 3, time: '12:01', content: 'お昼なに食べました？' },
+      { id: 202, userId: 4, time: '12:05', content: 'カレーです🍛' },
+      { id: 203, userId: 2, time: '12:06', content: 'いいですね' },
+    ],
+    3: [
+      { id: 301, userId: 2, time: '14:20', content: 'DB設計のレビューお願いします' },
+    ],
+    4: [
+      { id: 401, userId: 5, time: '15:00', content: 'record と class の使い分けがわかりません' },
+    ],
+    5: [
+      { id: 501, userId: 2, time: '16:00', content: '田中さん、明日のペアプロ何時からにしますか？' },
+      { id: 502, userId: 2, time: '16:01', content: '午後なら空いてます' },
+    ],
+    6: [
+      { id: 601, userId: 3, time: '17:30', content: '3人で設計の相談をしましょう' },
+      { id: 602, userId: 1, time: '17:32', content: 'いいですね' },
+    ],
+    7: [
+      { id: 701, userId: 2, time: '11:00', content: '個人開発チームへようこそ！' },
+    ],
+  },
+  // 無限スクロールで読み込む過去のメッセージ
+  older: {
+    1: [
+      { id: 91, userId: 2, time: '昨日 18:00', content: 'ワークスペースを作りました。よろしくお願いします！' },
+      { id: 92, userId: 3, time: '昨日 18:05', content: 'よろしくお願いします' },
+      { id: 93, userId: 4, time: '昨日 18:20', content: 'よろしくお願いします！' },
+      { id: 94, userId: 5, time: '昨日 19:00', content: '招待リンクから参加しました' },
+      { id: 95, userId: 1, time: '昨日 19:30', content: '過去のメッセージはこのように上へスクロールすると読み込まれます' },
+    ],
+  },
+};
+let nextId = 1000;
+
+const SCREENS = {
+  S01: { name: 'ログイン', note: 'サンプル値が入力済みなので、そのまま［ログイン］で進めます。', render: renderLogin },
+  S02: { name: 'サインアップ', note: 'パスワードを8文字未満にすると、仕様のルールどおりエラーになります。', render: renderSignup },
+  S03: { name: 'パスワードリセット申請', note: '送信すると完了メッセージに切り替わります。', render: renderResetRequest },
+  S04: { name: 'パスワード再設定', note: 'メールのリンクから開く画面です。リンクが無効な場合の表示も切り替えて確認できます。', render: renderReset },
+  S05: { name: 'ワークスペース選択', note: 'ワークスペースをクリックするとチャット画面へ進みます。', render: renderWorkspaces },
+  S06: { name: 'ワークスペース作成', note: '作成すると自分がOWNERになり、#generalが自動で作られます。', render: renderWorkspaceCreate },
+  S07: { name: '招待参加', note: '招待リンクから開く画面です。期限切れの場合の表示も切り替えて確認できます。', render: renderInvite },
+  S08: { name: 'チャット', note: 'ワークスペース名をクリックするとメニューが開きます。自分のメッセージにマウスを乗せると［編集］［削除］が出ます。', render: renderChat },
+  S09: { name: 'メンバー管理', note: '上の「自分のロール」を切り替えると、表示されるボタンが権限表どおりに変わります。', render: renderMembers },
+};
+const MODALS = {
+  M01: { name: 'チャンネル作成', render: renderChannelCreate },
+  M02: { name: 'チャンネルを探す', render: renderChannelBrowse },
+  M03: { name: 'チャンネル詳細', render: renderChannelDetail },
+  M04: { name: 'DM作成', render: renderDmCreate },
+  M05: { name: '招待リンク発行', render: renderInviteLink },
+  M06: { name: 'メッセージ削除の確認', render: renderDeleteConfirm },
+};
+
+const state = {
+  screen: 'S01',
+  modal: null,
+  workspaceId: 1,
+  channelId: 1,
+  error: null,
+  flash: null,
+  sub: null,          // モーダル・画面内の小さな状態（確認表示など）
+  sent: false,
+  invalidLink: false,
+  menuOpen: false,
+  editingId: null,
+  targetId: null,
+  inviteToken: null,
+  loadingOlder: false,
+  drafts: {},
+  newMsgId: null,
+  focus: null,
+  keepScroll: null,
+};
+
+// =========================================================
+// ヘルパー
+// =========================================================
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function avatar(userId, cls = '') {
+  const u = USERS[userId];
+  return `<span class="avatar ${cls}" style="background:${u.color}">${esc(u.name[0])}</span>`;
+}
+function curWs() { return db.workspaces.find(w => w.id === state.workspaceId); }
+function myWorkspaces() { return db.workspaces.filter(w => w.members.some(m => m.userId === ME)); }
+function roleOf(ws, userId) { return ws?.members.find(m => m.userId === userId)?.role; }
+function myRole() { return roleOf(curWs(), ME); }
+function wsChannels() { return db.channels.filter(c => c.ws === state.workspaceId); }
+function joined(ch) { return ch.members.includes(ME); }
+function curChannel() { return db.channels.find(c => c.id === state.channelId); }
+function generalOf(wsId) { return db.channels.find(c => c.ws === wsId && c.general); }
+function chLabel(ch) {
+  if (ch.type === 'DM') return ch.members.filter(id => id !== ME).map(id => USERS[id].name).join('、');
+  return ch.name;
+}
+function chIcon(ch) {
+  if (ch.type === 'PUBLIC') return '#';
+  if (ch.type === 'PRIVATE') return '🔒';
+  return ch.members.length > 2 ? '👥' : '●';
+}
+function chTitle(ch) { return ch.type === 'DM' ? chLabel(ch) : `${chIcon(ch)} ${ch.name}`; }
+function nowTime() {
+  const d = new Date();
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+// 権限表（docs/permissions.md）のうち、画面のボタン表示に関わるもの
+function can(action) {
+  const role = myRole();
+  switch (action) {
+    case 'makePrivate': return role === 'OWNER' || role === 'ADMIN';
+    case 'changeRole': return role === 'OWNER';
+    case 'deleteWorkspace': return role === 'OWNER';
+    default: return false;
+  }
+}
+
+// =========================================================
+// 画面遷移
+// =========================================================
+function go(id, extra = {}) {
+  Object.assign(state, { error: null, flash: null, sub: null, sent: false, invalidLink: false, menuOpen: false, editingId: null, targetId: null }, extra);
+  if (location.hash === '#' + id) applyHash();
+  else location.hash = id;
+}
+function applyHash() {
+  const id = location.hash.slice(1) || 'S01';
+  if (MODALS[id]) {
+    state.screen = 'S08';
+    state.modal = id;
+  } else {
+    state.screen = SCREENS[id] ? id : 'S01';
+    state.modal = null;
+  }
+  render();
+}
+window.addEventListener('hashchange', applyHash);
+
+function openChannel(id) {
+  state.channelId = id;
+  const ch = curChannel();
+  if (ch) ch.unread = 0;
+}
+// 現在のワークスペース・チャンネルが不正なら、参加している所に寄せる
+function ensureContext() {
+  if (!curWs() || !roleOf(curWs(), ME)) {
+    const ws = myWorkspaces()[0];
+    if (ws) state.workspaceId = ws.id;
+  }
+  const ch = curChannel();
+  if (!ch || ch.ws !== state.workspaceId || !joined(ch)) {
+    const g = generalOf(state.workspaceId);
+    if (g) openChannel(g.id);
+  }
+}
+
+// =========================================================
+// 描画
+// =========================================================
+const app = document.getElementById('app');
+const modalRoot = document.getElementById('modal-root');
+
+function render() {
+  const composer = document.getElementById('composer');
+  if (composer) state.drafts[composer.dataset.ch] = composer.value;
+
+  const list = document.querySelector('.messages');
+  const prev = list ? { top: list.scrollTop, height: list.scrollHeight, atBottom: list.scrollHeight - list.scrollTop - list.clientHeight < 30 } : null;
+
+  ensureContext();
+  if (state.modal && !curChannel()) state.modal = null;
+  app.innerHTML = SCREENS[state.screen].render();
+  state.newMsgId = null;
+  modalRoot.innerHTML = state.modal ? `<div class="backdrop" data-act="close-modal">${MODALS[state.modal].render()}</div>` : '';
+  renderDemoBar();
+
+  const newList = document.querySelector('.messages');
+  if (newList) {
+    if (state.keepScroll === 'older' && prev) newList.scrollTop = newList.scrollHeight - prev.height + prev.top;
+    else if (state.keepScroll === 'stay' && prev && !prev.atBottom) newList.scrollTop = prev.top;
+    else newList.scrollTop = newList.scrollHeight;
+    newList.addEventListener('scroll', onMessagesScroll);
+  }
+  state.keepScroll = null;
+
+  if (state.focus) {
+    const el = document.querySelector(state.focus);
+    if (el) { el.focus(); if (el.setSelectionRange) el.setSelectionRange(el.value.length, el.value.length); }
+    state.focus = null;
+  }
+}
+
+function renderDemoBar() {
+  const cur = state.modal || state.screen;
+  const btn = id => `<button class="${id === cur ? 'current' : ''}" data-go="${id}" title="${esc((SCREENS[id] || MODALS[id]).name)}">${id}</button>`;
+  const ws = curWs();
+  const role = myRole();
+  document.getElementById('demobar').innerHTML = `
+    <span class="tag">画面デモ</span>
+    <div class="group"><span class="group-label">画面</span>${Object.keys(SCREENS).map(btn).join('')}</div>
+    <div class="group"><span class="group-label">モーダル</span>${Object.keys(MODALS).map(btn).join('')}</div>
+    ${ws && role ? `<div class="group"><span class="group-label">自分のロール（${esc(ws.name)}）</span>
+      <select id="role-select">${['OWNER', 'ADMIN', 'MEMBER'].map(r => `<option ${r === role ? 'selected' : ''}>${r}</option>`).join('')}</select></div>` : ''}
+    ${state.screen === 'S08' ? `<div class="group"><button data-act="simulate">他の人からメッセージを受信（WebSocket）</button></div>` : ''}
+  `;
+  const def = SCREENS[state.screen];
+  const label = state.modal ? `${state.modal} ${MODALS[state.modal].name}` : `${state.screen} ${def.name}`;
+  const note = document.getElementById('demonote');
+  note.innerHTML = `<b>${esc(label)}</b>${esc(state.modal ? 'モーダルの外側か［×］、Escキーで閉じます。' : def.note)}`;
+  // モーダルがデモ用の操作バーの下に隠れないよう、バーの高さを渡す
+  document.documentElement.style.setProperty('--bar-h', note.getBoundingClientRect().bottom + 'px');
+}
+
+// ---------- S01〜S04 認証 ----------
+function authCard(title, body) {
+  return `<div class="auth"><div class="auth-card"><div class="logo">RaiseTechChat</div><h1>${title}</h1>${body}</div></div>`;
+}
+function errorHtml() { return state.error ? `<p class="error">${esc(state.error)}</p>` : ''; }
+
+function renderLogin() {
+  return authCard('ログイン', `
+    ${state.flash ? `<p class="success">${esc(state.flash)}</p>` : ''}
+    <form data-form="login">
+      <div class="field"><label>メールアドレス</label><input type="email" name="email" value="tanaka@example.com"></div>
+      <div class="field"><label>パスワード</label><input type="password" name="password" value="password123"></div>
+      ${errorHtml()}
+      <button class="btn primary block">ログイン</button>
+    </form>
+    <div class="links">
+      <a data-go="S03">パスワードを忘れた方</a><br>
+      アカウントをお持ちでない方は <a data-go="S02">サインアップ</a>
+    </div>`);
+}
+
+function renderSignup() {
+  return authCard('アカウント作成', `
+    <form data-form="signup">
+      <div class="field"><label>表示名</label><input type="text" name="name" maxlength="50" value="田中 太郎"></div>
+      <div class="field"><label>メールアドレス</label><input type="email" name="email" value="tanaka@example.com"></div>
+      <div class="field"><label>パスワード（8文字以上）</label><input type="password" name="password" value="pass"></div>
+      ${errorHtml()}
+      <button class="btn primary block">登録する</button>
+    </form>
+    <p class="hint">パスワードは4文字が入っています。そのまま押すとエラー、8文字以上にすると進めます。</p>
+    <div class="links"><a data-go="S01">ログイン画面に戻る</a></div>`);
+}
+
+function renderResetRequest() {
+  const body = state.sent
+    ? `<p class="success">再設定用のメールを送信しました。メールに記載されたリンクから、新しいパスワードを設定してください。</p>
+       <p class="hint">登録されていないメールアドレスでも同じ表示にします。実際はここでメールが届き、リンクから S04 が開きます。</p>
+       <div class="links"><a data-go="S04">（デモ）メールのリンクを開く</a></div>`
+    : `<p class="muted">登録したメールアドレスに、パスワード再設定用のリンクを送ります。</p>
+       <form data-form="reset-request">
+         <div class="field"><label>メールアドレス</label><input type="email" name="email" value="tanaka@example.com"></div>
+         ${errorHtml()}
+         <button class="btn primary block">送信する</button>
+       </form>`;
+  return authCard('パスワードの再設定', body + `<div class="links"><a data-go="S01">ログイン画面に戻る</a></div>`);
+}
+
+function renderReset() {
+  const toggle = `<p class="hint"><a data-act="toggle-invalid">${state.invalidLink ? '有効なリンクの場合の表示に戻す' : '期限切れ・使用済みリンクの場合の表示を見る'}</a></p>`;
+  if (state.invalidLink) {
+    return authCard('新しいパスワードの設定', `
+      <p class="error">このリンクは無効です。有効期限が切れているか、すでに使用されています。</p>
+      <a class="btn block" data-go="S03" style="display:block;text-align:center">パスワードリセット申請画面へ</a>
+      ${toggle}`);
+  }
+  return authCard('新しいパスワードの設定', `
+    <form data-form="reset">
+      <div class="field"><label>新しいパスワード（8文字以上）</label><input type="password" name="password"></div>
+      <div class="field"><label>新しいパスワード（確認）</label><input type="password" name="confirm"></div>
+      ${errorHtml()}
+      <button class="btn primary block">設定する</button>
+    </form>
+    ${toggle}`);
+}
+
+// ---------- S05〜S07 ワークスペース ----------
+function renderWorkspaces() {
+  const list = myWorkspaces();
+  return `
+    <div class="topbar"><span class="logo">RaiseTechChat</span><a data-go="S01">ログアウト</a></div>
+    <div class="ws-page"><div class="ws-page-inner">
+      ${state.flash ? `<p class="success">${esc(state.flash)}</p>` : ''}
+      <h1>ワークスペースを選択</h1>
+      ${list.length ? `<div class="ws-list">${list.map(ws => `
+        <div class="ws-item" data-act="enter-ws" data-id="${ws.id}">
+          <span class="ws-icon">${esc(ws.name[0])}</span>
+          <div><div class="ws-name">${esc(ws.name)}</div>
+            <div class="muted">メンバー ${ws.members.length}人 ・ <span class="role ${roleOf(ws, ME)}">${roleOf(ws, ME)}</span></div></div>
+          <span class="chev">›</span>
+        </div>`).join('')}</div>`
+        : `<p class="muted">所属しているワークスペースはありません。作成するか、招待リンクから参加してください。</p>`}
+      <button class="btn" data-go="S06">＋ ワークスペースを作成</button>
+      <p class="hint">招待リンクを受け取った場合は、リンクを開くと S07 招待参加画面が表示されます。</p>
+    </div></div>`;
+}
+
+function renderWorkspaceCreate() {
+  return authCard('ワークスペースを作成', `
+    <form data-form="ws-create">
+      <div class="field"><label>ワークスペース名（80文字まで）</label><input type="text" name="name" maxlength="80" placeholder="例：RaiseTech 勉強会"></div>
+      ${errorHtml()}
+      <div class="row"><button type="button" class="btn" data-go="S05">キャンセル</button><button class="btn primary">作成する</button></div>
+    </form>
+    <p class="hint">作成すると自分が OWNER になり、#general が自動で作られます。</p>`);
+}
+
+function renderInvite() {
+  const ws = db.workspaces.find(w => w.id === 1);
+  const toggle = `<p class="hint"><a data-act="toggle-invalid">${state.invalidLink ? '有効な招待リンクの場合の表示に戻す' : '有効期限切れの招待リンクの場合の表示を見る'}</a></p>`;
+  if (state.invalidLink) {
+    return authCard('招待リンク', `<p class="error">この招待リンクは有効期限が切れています。招待した人に新しいリンクを発行してもらってください。</p>${toggle}`);
+  }
+  return authCard('ワークスペースへの招待', `
+    <div style="text-align:center">
+      <p>${avatar(2)}</p>
+      <p><b>${esc(USERS[2].name)}</b>さんから<br><b>「${esc(ws ? ws.name : 'RaiseTech 受講生')}」</b>への招待が届いています</p>
+      <p class="muted">メンバー ${ws ? ws.members.length : 0}人</p>
+    </div>
+    <button class="btn primary block" data-act="join-invite">参加する</button>
+    <p class="hint">参加すると MEMBER として登録され、#general に自動で参加します。未ログインの場合は［参加する］の代わりに［ログインして参加］［アカウントを作成して参加］を表示します。</p>
+    ${toggle}`);
+}
+
+// ---------- S08 チャット ----------
+function renderChat() {
+  const ws = curWs();
+  const ch = curChannel();
+  if (!ws || !ch) return `<div class="auth"><div class="auth-card"><p>ワークスペースがありません。</p><button class="btn" data-go="S05">ワークスペース選択へ</button></div></div>`;
+  const chans = wsChannels().filter(c => c.type !== 'DM' && joined(c));
+  const dms = wsChannels().filter(c => c.type === 'DM' && joined(c));
+  const item = c => `
+    <a class="side-item ${c.id === ch.id ? 'active' : ''} ${c.unread ? 'unread' : ''}" data-act="open-channel" data-id="${c.id}">
+      <span class="icon">${chIcon(c)}</span><span class="label">${esc(chLabel(c))}</span>
+      ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
+    </a>`;
+  return `
+    <div class="chat">
+      <aside class="sidebar">
+        <button class="ws-header" data-act="toggle-menu">${esc(ws.name)} ▾</button>
+        ${state.menuOpen ? `<div class="ws-menu">
+          <a data-go="M05">メンバーを招待</a>
+          <a data-go="S09">メンバー管理</a>
+          <hr>
+          <a data-go="S05">ワークスペースを切り替える</a>
+          <a data-go="S01">ログアウト</a>
+        </div>` : ''}
+        <div class="side-scroll">
+          <div class="side-section">
+            <div class="side-title">チャンネル<button data-go="M01" title="チャンネルを作成">＋</button></div>
+            ${chans.map(item).join('')}
+            <a class="side-item sub" data-go="M02"><span class="icon">🔍</span><span class="label">チャンネルを探す</span></a>
+          </div>
+          <div class="side-section">
+            <div class="side-title">ダイレクトメッセージ<button data-go="M04" title="DMを開始">＋</button></div>
+            ${dms.map(item).join('')}
+          </div>
+        </div>
+      </aside>
+      <section class="main">
+        <div class="main-header">
+          <button class="title" data-go="M03">${esc(chTitle(ch))}</button>
+          <button class="btn small" data-go="M03">👥 ${ch.members.length}</button>
+        </div>
+        <div class="messages">${renderMessages(ch)}</div>
+        <div class="composer">
+          <form data-form="send">
+            <textarea id="composer" data-ch="${ch.id}" name="content" rows="1" maxlength="4000" data-enter-submit
+              placeholder="${esc(ch.type === 'DM' ? chLabel(ch) + ' へのメッセージ' : '#' + ch.name + ' へのメッセージ')}">${esc(state.drafts[ch.id] || '')}</textarea>
+            <button class="btn primary small">送信</button>
+          </form>
+          ${state.error ? `<p class="error" style="margin-top:6px">${esc(state.error)}</p>` : `<div class="muted">Enterで送信 / Shift+Enterで改行</div>`}
+        </div>
+      </section>
+    </div>`;
+}
+
+function renderMessages(ch) {
+  const msgs = db.messages[ch.id] || [];
+  const hasOlder = (db.older[ch.id] || []).length > 0;
+  let top;
+  if (hasOlder) {
+    top = `<div class="loader">${state.loadingOlder ? '読み込み中…' : '<a data-act="load-older">↑ 上にスクロールすると過去のメッセージを読み込みます</a>'}</div>`;
+  } else {
+    top = `<div class="channel-start"><h2>${esc(chTitle(ch))}</h2>
+      <div class="muted">${ch.type === 'DM' ? 'ここがダイレクトメッセージの始まりです。' : `ここが ${esc(chTitle(ch))} チャンネルの始まりです。${ch.description ? esc(ch.description) : ''}`}</div></div>`;
+  }
+  return top + msgs.map(messageHtml).join('');
+}
+
+function messageHtml(m) {
+  const u = USERS[m.userId];
+  const mine = m.userId === ME;
+  if (state.editingId === m.id) {
+    return `
+      <div class="msg">${avatar(m.userId)}
+        <div class="msg-body edit-box">
+          <form data-form="edit" data-id="${m.id}">
+            <textarea id="edit-box" name="content" maxlength="4000">${esc(m.content)}</textarea>
+            <div class="row"><button type="button" class="btn small" data-act="cancel-edit">キャンセル</button><button class="btn primary small">保存</button></div>
+          </form>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="msg ${m.id === state.newMsgId ? 'new' : ''}">${avatar(m.userId)}
+      <div class="msg-body">
+        <div class="msg-meta"><b>${esc(u.name)}</b><span class="time">${esc(m.time)}</span></div>
+        <div class="msg-text">${esc(m.content)}${m.edited ? '<span class="edited">（編集済み）</span>' : ''}</div>
+      </div>
+      ${mine ? `<div class="msg-actions"><button data-act="edit" data-id="${m.id}">編集</button><button class="del" data-act="delete" data-id="${m.id}">削除</button></div>` : ''}
+    </div>`;
+}
+
+function onMessagesScroll(e) {
+  if (e.target.scrollTop < 20) loadOlder();
+}
+function loadOlder() {
+  const ch = curChannel();
+  if (state.loadingOlder || !(db.older[ch.id] || []).length) return;
+  state.loadingOlder = true;
+  state.keepScroll = 'older';
+  render();
+  setTimeout(() => {
+    db.messages[ch.id] = db.older[ch.id].concat(db.messages[ch.id] || []);
+    db.older[ch.id] = [];
+    state.loadingOlder = false;
+    state.keepScroll = 'older';
+    render();
+  }, 700);
+}
+
+// ---------- S09 メンバー管理 ----------
+function renderMembers() {
+  const ws = curWs();
+  if (!ws) return '';
+  const owner = can('changeRole');
+  const rows = ws.members.map(m => {
+    const u = USERS[m.userId];
+    let ctrl = '';
+    if (owner && m.userId !== ME) {
+      ctrl = m.role === 'ADMIN'
+        ? `<button class="btn small" data-act="set-role" data-user="${m.userId}" data-role="MEMBER">ADMINを解除</button>`
+        : `<button class="btn small" data-act="set-role" data-user="${m.userId}" data-role="ADMIN">ADMINにする</button>`;
+    }
+    return `<tr>
+      <td><span class="member-name">${avatar(m.userId, 'sm')}${esc(u.name)}${m.userId === ME ? '<span class="muted">（あなた）</span>' : ''}</span></td>
+      <td class="email muted">${esc(u.email)}</td>
+      <td><span class="role ${m.role}">${m.role}</span></td>
+      <td>${ctrl}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="page"><div class="page-inner">
+      <a data-go="S08">← チャットに戻る</a>
+      <h1>メンバー管理：${esc(ws.name)}</h1>
+      <table class="member-table">
+        <thead><tr><th>名前</th><th class="email">メールアドレス</th><th>ロール</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${owner ? '' : '<p class="hint">ロールの変更とワークスペースの削除は OWNER だけができるため、ボタンを表示していません。</p>'}
+      ${can('deleteWorkspace') ? `
+        <div class="danger-zone">
+          <h2>危険な操作</h2>
+          ${state.sub === 'delete-ws' ? `
+            <p>「${esc(ws.name)}」を削除すると、チャンネル・メッセージもすべて削除され、元に戻せません。</p>
+            <div class="row" style="justify-content:flex-start"><button class="btn" data-act="sub" data-sub="">キャンセル</button><button class="btn danger solid" data-act="delete-ws">削除する</button></div>`
+          : `<button class="btn danger" data-act="sub" data-sub="delete-ws">ワークスペースを削除</button>`}
+        </div>` : ''}
+    </div></div>`;
+}
+
+// ---------- モーダル ----------
+function modal(title, body) {
+  return `<div class="modal" role="dialog"><div class="modal-head"><h2>${title}</h2><button class="close" data-go="S08" aria-label="閉じる">×</button></div><div class="modal-body">${body}</div></div>`;
+}
+
+function renderChannelCreate() {
+  return modal('チャンネルを作成', `
+    <form data-form="channel-create">
+      <div class="field"><label>名前</label><input type="text" name="name" maxlength="80" placeholder="例：java-質問"></div>
+      <div class="field"><label>説明（任意）</label><input type="text" name="description" maxlength="250"></div>
+      <label class="radio"><input type="radio" name="type" value="PUBLIC" checked><span><b>公開</b><br><span class="muted">ワークスペースのメンバーなら誰でも参加できる</span></span></label>
+      <label class="radio"><input type="radio" name="type" value="PRIVATE"><span><b>非公開</b><br><span class="muted">参加者に追加された人だけが閲覧・参加できる</span></span></label>
+      ${errorHtml()}
+      <div class="row" style="margin-top:12px"><button type="button" class="btn" data-go="S08">キャンセル</button><button class="btn primary">作成する</button></div>
+    </form>`);
+}
+
+function renderChannelBrowse() {
+  const list = wsChannels().filter(c => c.type === 'PUBLIC');
+  return modal('チャンネルを探す', `
+    ${list.map(c => `
+      <div class="list-item">
+        <div class="grow"><b># ${esc(c.name)}</b><div class="muted">${esc(c.description || '')} ・ メンバー ${c.members.length}人</div></div>
+        ${joined(c) ? `<a data-act="open-channel" data-id="${c.id}">参加済み・開く</a>` : `<button class="btn primary small" data-act="join-channel" data-id="${c.id}">参加</button>`}
+      </div>`).join('')}
+    <p class="hint">非公開チャンネルはここに表示されません。参加者に追加してもらう必要があります。</p>`);
+}
+
+function renderChannelDetail() {
+  const ch = curChannel();
+  if (!ch) return modal('チャンネル詳細', '');
+  const members = ch.members.map(id => `<div class="list-item">${avatar(id, 'sm')}<span class="grow">${esc(USERS[id].name)}${id === ME ? '<span class="muted">（あなた）</span>' : ''}</span></div>`).join('');
+  if (ch.type === 'DM') {
+    return modal(esc(chTitle(ch)), `<h3>メンバー（${ch.members.length}人）</h3>${members}<p class="hint">DMではメンバーの一覧だけを表示します。</p>`);
+  }
+
+  let addArea = '';
+  if (ch.type === 'PRIVATE') {
+    const candidates = curWs().members.map(m => m.userId).filter(id => !ch.members.includes(id));
+    addArea = state.sub === 'add'
+      ? `<div class="confirm"><b>メンバーを追加</b>
+          ${candidates.length ? candidates.map(id => `<div class="list-item">${avatar(id, 'sm')}<span class="grow">${esc(USERS[id].name)}</span><button class="btn small" data-act="add-member" data-id="${id}">追加</button></div>`).join('')
+            : '<p class="muted">追加できるメンバーはいません。</p>'}
+          <button class="btn small" data-act="sub" data-sub="">閉じる</button></div>`
+      : `<button class="btn" data-act="sub" data-sub="add">メンバーを追加</button>`;
+  }
+
+  let privateArea = '';
+  if (ch.type === 'PUBLIC' && !ch.general && can('makePrivate')) {
+    privateArea = state.sub === 'private'
+      ? `<div class="confirm">一度非公開にすると、公開に戻せません。非公開にしますか？
+          <div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="sub" data-sub="">キャンセル</button><button class="btn danger solid small" data-act="make-private">非公開にする</button></div></div>`
+      : `<button class="btn" data-act="sub" data-sub="private">非公開にする</button>`;
+  }
+
+  let leaveArea = '';
+  if (!ch.general) {
+    leaveArea = state.sub === 'leave'
+      ? `<div class="confirm">${ch.type === 'PRIVATE' ? '再び参加するには、参加者に追加してもらう必要があります。' : ''}チャンネルから退出しますか？
+          <div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="sub" data-sub="">キャンセル</button><button class="btn danger solid small" data-act="leave">退出する</button></div></div>`
+      : `<button class="btn danger" data-act="sub" data-sub="leave">チャンネルから退出</button>`;
+  }
+
+  const hints = [];
+  if (ch.general) hints.push('#general は非公開化・退出ができないため、ボタンを表示していません（仕様のルール）。');
+  else if (ch.type === 'PUBLIC' && !can('makePrivate')) hints.push('［非公開にする］は OWNER・ADMIN だけに表示します（権限表）。上の「自分のロール」で切り替えてみてください。');
+  if (ch.type === 'PRIVATE') hints.push('一度非公開にしたチャンネルは公開に戻せないため、［公開にする］ボタンはありません。');
+  if (ch.type === 'PUBLIC') hints.push('［メンバーを追加］は非公開チャンネルだけに表示します。公開チャンネルは各自が［チャンネルを探す］から参加します。');
+
+  return modal(esc(chTitle(ch)), `
+    <div class="muted">${ch.description ? '説明：' + esc(ch.description) + '<br>' : ''}種別：${ch.type === 'PUBLIC' ? '公開チャンネル' : '非公開チャンネル'}</div>
+    <h3>メンバー（${ch.members.length}人）</h3>
+    ${members}
+    <div class="actions-col">${addArea}${privateArea}${leaveArea}</div>
+    ${hints.map(h => `<p class="hint">${esc(h)}</p>`).join('')}`);
+}
+
+function renderDmCreate() {
+  const others = curWs().members.map(m => m.userId).filter(id => id !== ME);
+  return modal('ダイレクトメッセージ', `
+    <form data-form="dm-create">
+      ${others.map(id => `<label class="list-item"><input type="checkbox" name="users" value="${id}">${avatar(id, 'sm')}<span class="grow">${esc(USERS[id].name)}</span></label>`).join('')}
+      ${errorHtml()}
+      <p class="hint">1人を選ぶと1対1のDM、2人以上でグループDMになります。同じメンバー構成のDMがすでにあれば、新しく作らずにそれを開きます。</p>
+      <div class="row"><button type="button" class="btn" data-go="S08">キャンセル</button><button class="btn primary">DMを開始</button></div>
+    </form>`);
+}
+
+function renderInviteLink() {
+  if (!state.inviteToken) state.inviteToken = Math.random().toString(36).slice(2, 12);
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  const url = `https://raisetech-chat.example/invite/${state.inviteToken}`;
+  return modal('メンバーを招待', `
+    <p>このリンクを共有すると、<b>${esc(curWs().name)}</b> に参加できます。</p>
+    <div class="invite-url"><input type="text" readonly value="${url}" id="invite-url"><button class="btn primary small" data-act="copy-invite">${state.sub === 'copied' ? 'コピーしました' : 'コピー'}</button></div>
+    <p class="muted">有効期限：${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日まで（30日間）。期限内なら何人でも使えます。</p>
+    <p class="hint">招待リンクの発行はロールに関係なく全員ができます。リンクを開くと <a data-go="S07">S07 招待参加画面</a> が表示されます。</p>`);
+}
+
+function renderDeleteConfirm() {
+  const ch = curChannel();
+  const msgs = db.messages[ch.id] || [];
+  const target = msgs.find(m => m.id === state.targetId) || [...msgs].reverse().find(m => m.userId === ME);
+  if (!target) {
+    return modal('メッセージを削除しますか？', `<p class="muted">このチャンネルに自分のメッセージがありません。</p><div class="row"><button class="btn" data-go="S08">閉じる</button></div>`);
+  }
+  state.targetId = target.id;
+  return modal('メッセージを削除しますか？', `
+    <div class="quote">${esc(target.content)}</div>
+    <p class="muted">削除したメッセージは元に戻せません。</p>
+    <div class="row"><button class="btn" data-go="S08">キャンセル</button><button class="btn danger solid" data-act="confirm-delete">削除する</button></div>`);
+}
+
+// =========================================================
+// 操作
+// =========================================================
+const ACTIONS = {
+  'close-modal'() { go('S08'); },
+  'toggle-menu'() { state.menuOpen = !state.menuOpen; render(); },
+  'toggle-invalid'() { state.invalidLink = !state.invalidLink; state.error = null; render(); },
+  sub(d) { state.sub = d.sub || null; state.keepScroll = 'stay'; render(); },
+  'enter-ws'(d) {
+    state.workspaceId = Number(d.id);
+    openChannel(generalOf(state.workspaceId).id);
+    go('S08');
+  },
+  'join-invite'() {
+    const ws = db.workspaces.find(w => w.id === 1);
+    if (!ws) { go('S05'); return; }
+    // デモでは自分はすでに参加済みなので、そのまま #general を開く
+    state.workspaceId = ws.id;
+    openChannel(generalOf(ws.id).id);
+    go('S08');
+  },
+  'open-channel'(d) { openChannel(Number(d.id)); go('S08', { focus: '#composer' }); },
+  'join-channel'(d) {
+    const ch = db.channels.find(c => c.id === Number(d.id));
+    ch.members.push(ME);
+    openChannel(ch.id);
+    go('S08', { focus: '#composer' });
+  },
+  'load-older'() { loadOlder(); },
+  edit(d) { state.editingId = Number(d.id); state.keepScroll = 'stay'; state.focus = '#edit-box'; render(); },
+  'cancel-edit'() { state.editingId = null; state.keepScroll = 'stay'; render(); },
+  delete(d) { go('M06', { targetId: Number(d.id) }); },
+  'confirm-delete'() {
+    const ch = curChannel();
+    db.messages[ch.id] = db.messages[ch.id].filter(m => m.id !== state.targetId);
+    go('S08');
+  },
+  'add-member'(d) { curChannel().members.push(Number(d.id)); render(); },
+  'make-private'() { curChannel().type = 'PRIVATE'; state.sub = null; render(); },
+  leave() {
+    const ch = curChannel();
+    ch.members = ch.members.filter(id => id !== ME);
+    openChannel(generalOf(state.workspaceId).id);
+    go('S08');
+  },
+  'copy-invite'() {
+    const input = document.getElementById('invite-url');
+    // クリップボードが使えない環境では、テキストを選択状態にして手動でコピーしてもらう
+    try { navigator.clipboard.writeText(input.value).catch(() => input.select()); } catch (e) { input.select(); }
+    state.sub = 'copied';
+    render();
+  },
+  'set-role'(d) {
+    curWs().members.find(m => m.userId === Number(d.user)).role = d.role;
+    render();
+  },
+  'delete-ws'() {
+    const ws = curWs();
+    db.workspaces = db.workspaces.filter(w => w.id !== ws.id);
+    db.channels = db.channels.filter(c => c.ws !== ws.id);
+    go('S05', { flash: `「${ws.name}」を削除しました。` });
+  },
+  simulate() {
+    // 半分は今開いているチャンネル、半分は別のチャンネル・DMに届く
+    const others = wsChannels().filter(c => joined(c) && c.id !== state.channelId);
+    const toCurrent = !others.length || Math.random() < 0.5;
+    const ch = toCurrent ? curChannel() : others[Math.floor(Math.random() * others.length)];
+    const senders = ch.members.filter(id => id !== ME);
+    if (!senders.length) return;
+    const from = senders[Math.floor(Math.random() * senders.length)];
+    const texts = ['リアルタイムで届きました！', '確認しました👍', '今から少し席を外します', 'この件、あとで相談させてください', 'ありがとうございます！'];
+    const m = { id: nextId++, userId: from, time: nowTime(), content: texts[Math.floor(Math.random() * texts.length)] };
+    (db.messages[ch.id] = db.messages[ch.id] || []).push(m);
+    if (toCurrent) state.newMsgId = m.id;
+    else { ch.unread++; state.keepScroll = 'stay'; }
+    render();
+  },
+};
+
+const FORMS = {
+  login(fd) {
+    if (!fd.get('email') || !fd.get('password')) { state.error = 'メールアドレスとパスワードを入力してください'; render(); return; }
+    go('S05');
+  },
+  signup(fd) {
+    if (!fd.get('name') || !fd.get('email')) { state.error = '表示名とメールアドレスを入力してください'; render(); return; }
+    if (fd.get('password').length < 8) { state.error = 'パスワードは8文字以上で入力してください'; render(); return; }
+    go('S05');
+  },
+  'reset-request'(fd) {
+    if (!fd.get('email')) { state.error = 'メールアドレスを入力してください'; render(); return; }
+    state.sent = true;
+    state.error = null;
+    render();
+  },
+  reset(fd) {
+    if (fd.get('password').length < 8) { state.error = 'パスワードは8文字以上で入力してください'; render(); return; }
+    if (fd.get('password') !== fd.get('confirm')) { state.error = '確認用のパスワードが一致しません'; render(); return; }
+    go('S01', { flash: 'パスワードを再設定しました。新しいパスワードでログインしてください。' });
+  },
+  'ws-create'(fd) {
+    const name = fd.get('name').trim();
+    if (!name) { state.error = 'ワークスペース名を入力してください'; render(); return; }
+    const ws = { id: nextId++, name, members: [{ userId: ME, role: 'OWNER' }] };
+    db.workspaces.push(ws);
+    const g = { id: nextId++, ws: ws.id, type: 'PUBLIC', name: 'general', general: true, description: '', members: [ME], unread: 0 };
+    db.channels.push(g);
+    state.workspaceId = ws.id;
+    openChannel(g.id);
+    go('S08');
+  },
+  send(fd) {
+    const content = fd.get('content');
+    if (!content.trim()) return;
+    const ch = curChannel();
+    (db.messages[ch.id] = db.messages[ch.id] || []).push({ id: nextId++, userId: ME, time: nowTime(), content });
+    state.drafts[ch.id] = '';
+    document.getElementById('composer').value = '';
+    state.error = null;
+    state.focus = '#composer';
+    render();
+  },
+  edit(fd, form) {
+    const m = db.messages[state.channelId].find(x => x.id === Number(form.dataset.id));
+    const content = fd.get('content');
+    if (!content.trim()) { state.editingId = null; go('M06', { targetId: m.id }); return; }
+    if (content !== m.content) { m.content = content; m.edited = true; }
+    state.editingId = null;
+    state.keepScroll = 'stay';
+    render();
+  },
+  'channel-create'(fd) {
+    const name = fd.get('name').trim();
+    if (!name) { state.error = 'チャンネル名を入力してください'; render(); return; }
+    if (wsChannels().some(c => c.type !== 'DM' && c.name === name)) { state.error = '同じ名前のチャンネルがすでにあります'; render(); return; }
+    const ch = { id: nextId++, ws: state.workspaceId, type: fd.get('type'), name, description: fd.get('description').trim(), members: [ME], unread: 0 };
+    db.channels.push(ch);
+    openChannel(ch.id);
+    go('S08', { focus: '#composer' });
+  },
+  'dm-create'(fd) {
+    const selected = fd.getAll('users').map(Number);
+    if (!selected.length) { state.error = '相手を1人以上選んでください'; render(); return; }
+    const key = [ME, ...selected].sort((a, b) => a - b).join(',');
+    let ch = wsChannels().find(c => c.type === 'DM' && [...c.members].sort((a, b) => a - b).join(',') === key);
+    if (!ch) {
+      ch = { id: nextId++, ws: state.workspaceId, type: 'DM', members: [ME, ...selected], unread: 0 };
+      db.channels.push(ch);
+    }
+    openChannel(ch.id);
+    go('S08', { focus: '#composer' });
+  },
+};
+
+function setMyRole(role) {
+  const ws = curWs();
+  const me = ws.members.find(m => m.userId === ME);
+  if (role === 'OWNER') {
+    // OWNERは1人だけなので、元のOWNERはADMINにする
+    ws.members.forEach(m => { if (m.role === 'OWNER') m.role = 'ADMIN'; });
+  } else if (me.role === 'OWNER') {
+    // 自分がOWNERでなくなる場合は、他の誰かをOWNERにする（デモ用）
+    const heir = ws.members.find(m => m.userId !== ME);
+    if (heir) heir.role = 'OWNER';
+  }
+  me.role = role;
+  state.keepScroll = 'stay';
+  render();
+}
+
+// =========================================================
+// イベント
+// =========================================================
+document.addEventListener('click', e => {
+  const goEl = e.target.closest('[data-go]');
+  if (goEl) { e.preventDefault(); go(goEl.dataset.go); return; }
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  if (el.dataset.act === 'close-modal' && e.target !== el) return;
+  e.preventDefault();
+  ACTIONS[el.dataset.act](el.dataset, el);
+});
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  FORMS[e.target.dataset.form](new FormData(e.target), e.target);
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'role-select') setMyRole(e.target.value);
+});
+document.addEventListener('keydown', e => {
+  // 日本語入力の変換確定（isComposing）のEnterでは送信しない
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229 && e.target.matches('[data-enter-submit]')) {
+    e.preventDefault();
+    e.target.form.requestSubmit();
+  }
+  if (e.key === 'Escape') {
+    if (state.editingId) { state.editingId = null; state.keepScroll = 'stay'; render(); }
+    else if (state.modal) go('S08');
+  }
+});
+
+applyHash();
+</script>
+</body>
+</html>
