@@ -409,7 +409,7 @@ const MAX_DM_OTHERS = 8;
 function chIcon(ch) {
   if (ch.type === 'PUBLIC') return '#';
   if (ch.type === 'PRIVATE') return '🔒';
-  return ch.members.length > 2 ? '👥' : '●';
+  return ch.members.length > 2 ? '👥' : '👤';
 }
 function chTitle(ch) { return ch.type === 'DM' ? chLabel(ch) : `${chIcon(ch)} ${ch.name}`; }
 function nowTime() {
